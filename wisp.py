@@ -11,6 +11,10 @@ CORS(app)
 # Load the Whisper model once when the app starts ("tiny" for lower memory usage)
 model = WhisperModel("tiny", compute_type="int8")
 
+@app.route('/')
+def home():
+    return '<h1>Hello, World!</h1>'
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     if 'file' not in request.files:
