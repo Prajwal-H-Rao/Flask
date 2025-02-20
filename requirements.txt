@@ -1,0 +1,6 @@
+Flask
+openai-whisper
+openai
+whisper
+flask_cors
+ffmpeg
