@@ -1,14 +1,15 @@
 from flask import Flask, request, jsonify
-import whisper
 import os
 import gc
+import io
 from flask_cors import CORS
+from faster_whisper import WhisperModel
 
 app = Flask(__name__)
 CORS(app)
 
-# Load the Whisper model once when the app starts
-app.model = whisper.load_model("small")  # Change to "tiny" for less memory usage
+# Load the Whisper model once when the app starts ("tiny" for lower memory usage)
+model = WhisperModel("tiny", compute_type="int8")
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -19,28 +20,17 @@ def transcribe():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    # Create uploads directory if it doesn't exist
-    os.makedirs("uploads", exist_ok=True)
-
-    # Save the uploaded file temporarily
-    file_path = os.path.join("uploads", file.filename)
-    file.save(file_path)
-
     try:
-        # Perform transcription on the saved file
-        result = app.model.transcribe(file_path, language=None)
+        # Read file into memory instead of saving to disk
+        audio_data = io.BytesIO(file.read())
 
-        # Clean up: Delete file and clear memory
-        os.remove(file_path)
-        text = result["text"]
-        language = result["language"]
-
-        del result  # Explicitly delete result to free memory
-        gc.collect()  # Force garbage collection
-
+        # Perform transcription
+        segments, info = model.transcribe(audio_data, language=None)
+        text = " ".join(segment.text for segment in segments)
+        
         return jsonify({
             "transcription": text,
-            "language": language
+            "language": info.language
         })
 
     except MemoryError:
@@ -51,4 +41,4 @@ def transcribe():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=False, port=5000, host='0.0.0.0')  # Set debug=False for better memory usage
+    app.run(debug=False, port=5000, host='0.0.0.0')
