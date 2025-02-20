@@ -1,12 +1,14 @@
 from flask import Flask, request, jsonify
 import whisper
 import os
+import gc
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
+
 # Load the Whisper model once when the app starts
-app.model = whisper.load_model("small")  # Use "turbo", "small", "medium", or "large" as needed
+app.model = whisper.load_model("small")  # Change to "tiny" for less memory usage
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -26,20 +28,27 @@ def transcribe():
 
     try:
         # Perform transcription on the saved file
-        result = app.model.transcribe(file_path, language=None)  # Auto-detect language
+        result = app.model.transcribe(file_path, language=None)
 
-        # Delete the uploaded file after transcription
+        # Clean up: Delete file and clear memory
         os.remove(file_path)
+        text = result["text"]
+        language = result["language"]
 
-        # Return JSON response with transcription and detected language
+        del result  # Explicitly delete result to free memory
+        gc.collect()  # Force garbage collection
+
         return jsonify({
-            "transcription": result["text"],
-            "language": result["language"]
+            "transcription": text,
+            "language": language
         })
 
+    except MemoryError:
+        gc.collect()
+        return jsonify({"error": "Memory limit exceeded"}), 500
+
     except Exception as e:
-        # Handle exceptions gracefully
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    app.run(debug=False, port=5000, host='0.0.0.0')  # Set debug=False for better memory usage
