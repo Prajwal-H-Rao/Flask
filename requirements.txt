@@ -1,6 +1,5 @@
-Flask
-openai-whisper
+quart
+faster-whisper
 openai
-whisper
 flask_cors
-ffmpeg
+
